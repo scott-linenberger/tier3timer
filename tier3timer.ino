@@ -4,175 +4,130 @@
 #define PIN_LED_GREEN 11
 #define PIN_LED_RED 12
 
-/* debouce variables */
-uint32_t TIMEOUT_DEPRESS = 100;
+/* timeout variables */
+uint32_t TIMEOUT_PRESS = 100;
+uint32_t TIMEOUT_BLINK = 1000;
+uint32_t TIMEOUT_BLINK_FAST = 500;
+uint32_t TIMEOUT_TIMER = 5000;
+uint32_t TIMER_THRESHOLD = 2000;
 
-/* state variables */
-/* default initial state to off */
+/* state variable: defaulted to 'off' */
 uint8_t state = 0;
 
-/* alert variables */
-uint32_t timestampLastBlinked = 0;
-boolean isAlertOn = false;
-boolean isTimerCritical = false;
-#define TIMEOUT_BLINK 1000
-#define TIMEOUT_BLINK_FAST 500
-
-/* timer variables */
-#define TIMEOUT_TIMER 3600000
-#define TIMER_THRESHOLD 300000
-uint32_t timestampTimerStarted = 0;
-
 void setup() {
-  /* init pins */
-  pinMode(PIN_BUTTON, INPUT);
-  pinMode(PIN_LED_RED, OUTPUT);
-  pinMode(PIN_LED_GREEN, OUTPUT);
-  pinMode(PIN_LED_BLUE, OUTPUT);
+  Serial.begin(9600);
 
-  /* init the LED to off */
+  /* init pins */
+  initPins();
+
+  /* turn led OFF */
   ledOff();
 }
 
 void loop() {
-  /* handle the current state */
+  /* check button */
+  checkButton();
+
+  /* handle state */
   handleState();
-
-  /* return right-away if the button isn't pressed */
-  if (buttonState() == LOW) {
-    return;
-  }
-
-  /* if the button is pressed..*/
-  uint32_t timestampPressStarted = millis();
-
-  while (buttonState() == HIGH) {
-    /* count time while button is held */
-  }
-
-  /* check if the press was not held long enough */
-  if (millis() - timestampPressStarted < TIMEOUT_DEPRESS) {
-    return;
-  }
-
-  /* button was pressed, reset timer */
-  resetTimer();
 }
 
-/* handle timer state */
 void handleState() {
-  switch (state) {
-    case 0: /* timer is off */
-      actionOff();
+  switch(state) {
+    /* off */
+    case 0:
+      Serial.println("Handling state: off");
+      stateOff();
       break;
 
-    case 1: /* timer is running */
-      actionRunTimer();
+    /* timer running */
+    case 1:
+      stateTimerActive();
       break;
-
-    case 2: /* timer is alerting */
-      actionAlert();
+      
+    default:
       break;
   }
 }
 
-boolean buttonState() {
-  return digitalRead(PIN_BUTTON);
-}
+void affectState() {
+  switch(state) {
+    /* if off */
+    case 0:
+      /* turn timer on */
+      state = 1;
+      return;
 
-void actionAlert() {
-  /* check if the bink timeout has passed */
-  if (millis() - timestampLastBlinked >= TIMEOUT_BLINK) {
-    /* toggle the alert */
-    isAlertOn = !isAlertOn;
-
-    /* reset the timestamp */
-    timestampLastBlinked = millis();
-  }
-
-  if (isAlertOn == true) {
-    ledRed();
-  }
-
-  if (isAlertOn == false) {
-    ledOff();
+    /* if timer on */
+    case 1:
+      /* reset timer */
+      resetTimer();
+      return;
   }
 }
 
-void actionOff() {
-  /* turn the led off */
+void checkButton() {
+  Serial.println(digitalRead(PIN_BUTTON));
+  
+  /* check if button is pressed */
+  if (digitalRead(PIN_BUTTON) == LOW) {
+    /* button isn't pressed */
+    return;
+  }
+
+  /* button is pressed */
+  uint32_t timePressStarted = millis();
+
+  /* hold while the button is pressed */
+  while(digitalRead(PIN_BUTTON) == HIGH) {}
+
+  /* check if button pressed long enough */
+  if (millis() - timePressStarted < TIMEOUT_PRESS) {
+    /* button wasn't pressed long enough */
+    return;
+  }
+
+  Serial.println("Button pressed!");
+
+  /* button was pressed long enough.. */
+  affectState();
+}
+
+void stateOff(){
+  Serial.println("State: off");
+  /* set the LED blue */
   ledBlue();
 }
 
-void actionRunTimer() {
-  /* check if the timer has reached threshold */
-  uint32_t timeRemaining = TIMEOUT_TIMER - (millis() - timestampTimerStarted);
-  isTimerCritical = timeRemaining <= TIMER_THRESHOLD;
+void stateTimerActive() {
 
-
-  /* check if the timer has finished */
-  if (millis() - timestampTimerStarted >= TIMEOUT_TIMER) {
-    /* set timer state to alerting */
-    state = 2;
-    return;
-  }
-
-  /* if the timer hasn't timed out..*/
-  if (isTimerCritical == false) {
-    ledGreen();
-    return;
-  }
-
-  /* timer is critical */
-  ledYellow();
 }
 
 void resetTimer() {
-  /* set the state to timer running */
-  state = 1;
 
-  /* update the time started to now */
-  timestampTimerStarted = millis();
-}
-
-void ledOff() {
-  digitalWrite(PIN_LED_RED, HIGH);
-  digitalWrite(PIN_LED_BLUE, HIGH);
-  digitalWrite(PIN_LED_GREEN, HIGH);
-}
-
-void ledRed() {
-  digitalWrite(PIN_LED_RED, LOW);
-  digitalWrite(PIN_LED_BLUE, HIGH);
-  digitalWrite(PIN_LED_GREEN, HIGH);
-}
-
-void ledGreen() {
-  digitalWrite(PIN_LED_RED, HIGH);
-  digitalWrite(PIN_LED_BLUE, HIGH);
-  digitalWrite(PIN_LED_GREEN, LOW);
 }
 
 void ledBlue() {
   digitalWrite(PIN_LED_RED, HIGH);
-  digitalWrite(PIN_LED_BLUE, LOW);
   digitalWrite(PIN_LED_GREEN, HIGH);
-}
-
-void ledYellow() {
-  digitalWrite(PIN_LED_RED, LOW);
-  digitalWrite(PIN_LED_BLUE, HIGH);
-  digitalWrite(PIN_LED_GREEN, LOW);
+  digitalWrite(PIN_LED_BLUE, LOW);
 }
 
 void ledPurple() {
   digitalWrite(PIN_LED_RED, LOW);
-  digitalWrite(PIN_LED_BLUE, LOW);
   digitalWrite(PIN_LED_GREEN, HIGH);
+  digitalWrite(PIN_LED_BLUE, LOW);
 }
 
-void ledCyan() {
+void ledOff() {
   digitalWrite(PIN_LED_RED, HIGH);
-  digitalWrite(PIN_LED_BLUE, LOW);
-  digitalWrite(PIN_LED_GREEN, LOW);
+  digitalWrite(PIN_LED_GREEN, HIGH);
+  digitalWrite(PIN_LED_BLUE, HIGH);
+}
+
+void initPins() {
+  pinMode(PIN_BUTTON, INPUT);
+  pinMode(PIN_LED_RED, OUTPUT);
+  pinMode(PIN_LED_GREEN, OUTPUT);
+  pinMode(PIN_LED_BLUE, OUTPUT);
 }
